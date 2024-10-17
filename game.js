@@ -9,96 +9,136 @@ let ball = {
   x: canvas.width / 2,
   y: canvas.height / 4,
   radius: 20,
-  dy: 5, // ボールの速度（上下運動）
-  gravity: 0.2, // 重力
-  jumpPower: -8, // 跳ねる力
+  dy: 5,
+  gravity: 0.2,
+  jumpPower: -8,
   color: "#3498db",
-  isInvincible: false, // 無敵状態
-  fallCount: 0 // 連続で落ちる回数
+  isInvincible: false,
+  fallCount: 0
 };
 
-let platform = {
-  x: canvas.width / 2,
-  y: canvas.height - 100,
-  width: 150,
-  height: 20,
-  holeWidth: 50,
-  redZoneWidth: 30,
-  angle: 0
-};
-
-let gameOver = false;
+let platforms = [];
+const platformSpacing = 150; // 地面の間隔
 let score = 0;
+let level = 1;
+let gameOver = false;
+let canRevive = true;
 
-// マウスの位置による回転制御
-canvas.addEventListener("mousemove", function (event) {
-  const mouseX = event.clientX;
-  const centerX = canvas.width / 2;
-  const angle = (mouseX - centerX) * 0.01; // マウスの位置に応じて回転角度を調整
-  platform.angle = angle;
-});
+function createPlatform(y) {
+  const platform = {
+    x: canvas.width / 2,
+    y: y,
+    width: 150,
+    height: 20,
+    holeWidth: 50,
+    redZoneWidth: 30,
+    angle: 0,
+    broken: false // 地面が割れたかどうか
+  };
+  platforms.push(platform);
+}
+
+// 最初の地面を作成
+for (let i = 0; i < 10; i++) {
+  createPlatform(canvas.height - i * platformSpacing);
+}
 
 // ボールの描画
 function drawBall() {
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-  ctx.fillStyle = ball.isInvincible ? "gold" : ball.color; // 無敵なら金色
+  ctx.fillStyle = ball.isInvincible ? "orange" : ball.color;
   ctx.fill();
   ctx.closePath();
 }
 
 // プラットフォームの描画
-function drawPlatform() {
-  ctx.save();
-  ctx.translate(platform.x, platform.y);
-  ctx.rotate(platform.angle);
+function drawPlatforms() {
+  platforms.forEach(platform => {
+    if (!platform.broken) {
+      ctx.save();
+      ctx.translate(platform.x, platform.y);
+      ctx.rotate(platform.angle);
+      
+      // 通常の部分
+      ctx.fillStyle = "#2ecc71";
+      ctx.fillRect(-platform.width / 2, -platform.height / 2, platform.width, platform.height);
 
-  // 通常の部分
-  ctx.fillStyle = "#2ecc71";
-  ctx.fillRect(-platform.width / 2, -platform.height / 2, platform.width, platform.height);
+      // 穴
+      ctx.clearRect(-platform.holeWidth / 2, -platform.height / 2, platform.holeWidth, platform.height);
 
-  // 穴
-  ctx.clearRect(-platform.holeWidth / 2, -platform.height / 2, platform.holeWidth, platform.height);
+      // 赤い部分
+      ctx.fillStyle = "red";
+      ctx.fillRect(-platform.redZoneWidth / 2, -platform.height / 2, platform.redZoneWidth, platform.height);
 
-  // 赤い部分
-  ctx.fillStyle = "red";
-  ctx.fillRect(-platform.redZoneWidth / 2, -platform.height / 2, platform.redZoneWidth, platform.height);
+      ctx.restore();
+    }
+  });
+}
 
-  ctx.restore();
+// スコアとレベルアップの描画
+function drawScoreAndLevel() {
+  ctx.font = "24px Arial";
+  ctx.fillStyle = "black";
+  ctx.fillText(`Score: ${score}`, 20, 40);
+  ctx.fillText(`Level: ${level}`, 20, 70);
+}
+
+// 地面が割れて消える
+function breakPlatform(platform) {
+  platform.broken = true;
+  setTimeout(() => {
+    platforms = platforms.filter(p => p !== platform); // 割れた地面を削除
+  }, 1000); // 1秒後に消える
 }
 
 // ゲームの更新処理
 function update() {
-  // ボールの上下運動（重力を適用）
   ball.dy += ball.gravity;
   ball.y += ball.dy;
 
-  // ボールが画面外に出たらゲームオーバー
-  if (ball.y + ball.radius > canvas.height) {
-    gameOver = true; 
+  // 地面の生成
+  if (platforms[platforms.length - 1].y > canvas.height - platformSpacing) {
+    createPlatform(platforms[platforms.length - 1].y - platformSpacing);
   }
 
-  // ボールがプラットフォームに当たったか確認
-  if (ball.y + ball.radius >= platform.y - platform.height / 2 &&
-      ball.x >= platform.x - platform.width / 2 &&
-      ball.x <= platform.x + platform.width / 2) {
-    
-    // ボールが赤い部分に当たったらゲームオーバー
-    if (ball.x >= platform.x - platform.redZoneWidth / 2 &&
-        ball.x <= platform.x + platform.redZoneWidth / 2) {
-      gameOver = true; // ゲームオーバー
-    } else {
-      // 緑の部分に当たったら跳ねる
-      ball.dy = ball.jumpPower;
-      score++; // スコアを加算
-      ball.fallCount++;
+  // すべてのプラットフォームをチェック
+  platforms.forEach(platform => {
+    // ボールが地面を超えたら割れる
+    if (!platform.broken && ball.y + ball.radius >= platform.y - platform.height / 2 &&
+        ball.x >= platform.x - platform.width / 2 &&
+        ball.x <= platform.x + platform.width / 2) {
 
-      // 3回連続で落下したら無敵状態
-      if (ball.fallCount >= 3) {
-        ball.isInvincible = true;
-        ball.fallCount = 0; // カウントをリセット
+      // 赤い部分に当たったらゲームオーバー
+      if (ball.x >= platform.x - platform.redZoneWidth / 2 &&
+          ball.x <= platform.x + platform.redZoneWidth / 2) {
+        gameOver = true;
+      } else {
+        // 緑の部分に当たったら跳ねる
+        ball.dy = ball.jumpPower;
+        score += 10;
+        ball.fallCount++;
+
+        // 地面を超えたら割れる
+        breakPlatform(platform);
+
+        // レベルアップ
+        if (score % 100 === 0) {
+          level++;
+        }
+
+        // 無敵状態の処理
+        if (ball.fallCount >= 3) {
+          ball.isInvincible = true;
+          ball.fallCount = 0;
+        }
       }
     }
+  });
+
+  // ボールが画面外に出たらゲームオーバー
+  if (ball.y + ball.radius > canvas.height) {
+    gameOver = true;
   }
 }
 
@@ -108,14 +148,31 @@ function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     drawBall();
-    drawPlatform();
+    drawPlatforms();
+    drawScoreAndLevel();
 
     update();
 
     requestAnimationFrame(gameLoop);
   } else {
-    alert("Game Over! スコア: " + score);
+    if (canRevive) {
+      alert("広告を見ることで復活できます。");
+      canRevive = false;
+      revive();
+    } else {
+      alert(`Game Over! スコア: ${score}`);
+    }
   }
+}
+
+// 広告後の復活処理
+function revive() {
+  ball.y = canvas.height / 4;
+  ball.dy = 5;
+  ball.isInvincible = false;
+  ball.fallCount = 0;
+  gameOver = false;
+  gameLoop();
 }
 
 // ゲーム開始
