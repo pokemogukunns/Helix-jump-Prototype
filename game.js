@@ -1,4 +1,5 @@
-// ゲーム設定
+// ゲーム
+// game.js
 // game.js
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -7,7 +8,7 @@ canvas.height = window.innerHeight;
 
 let ball = {
     x: canvas.width / 2,
-    y: canvas.height / 4,
+    y: canvas.height / 2,  // 地面の中央にボールを配置
     radius: 20,  // ボールのサイズ
     color: 'blue',
     dx: 0,
@@ -94,8 +95,8 @@ function resetGame() {
 
 function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawBall();
-    drawGround();
+    drawGround();  // 先に地面を描画
+    drawBall();    // その後にボールを描画
     update();
     animationId = requestAnimationFrame(animate);
 }
