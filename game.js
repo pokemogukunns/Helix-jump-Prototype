@@ -9,7 +9,9 @@ let ball = {
   x: canvas.width / 2,
   y: canvas.height / 4,
   radius: 20,
-  dy: 5, // ボールの速度
+  dy: 5, // ボールの速度（上下運動）
+  gravity: 0.2, // 重力
+  jumpPower: -8, // 跳ねる力
   color: "#3498db",
   isInvincible: false, // 無敵状態
   fallCount: 0 // 連続で落ちる回数
@@ -17,7 +19,7 @@ let ball = {
 
 let platform = {
   x: canvas.width / 2,
-  y: canvas.height / 2,
+  y: canvas.height - 100,
   width: 150,
   height: 20,
   holeWidth: 50,
@@ -26,6 +28,15 @@ let platform = {
 };
 
 let gameOver = false;
+let score = 0;
+
+// マウスの位置による回転制御
+canvas.addEventListener("mousemove", function (event) {
+  const mouseX = event.clientX;
+  const centerX = canvas.width / 2;
+  const angle = (mouseX - centerX) * 0.01; // マウスの位置に応じて回転角度を調整
+  platform.angle = angle;
+});
 
 // ボールの描画
 function drawBall() {
@@ -58,20 +69,37 @@ function drawPlatform() {
 
 // ゲームの更新処理
 function update() {
-  // ボールの移動
+  // ボールの上下運動（重力を適用）
+  ball.dy += ball.gravity;
   ball.y += ball.dy;
 
+  // ボールが画面外に出たらゲームオーバー
   if (ball.y + ball.radius > canvas.height) {
-    gameOver = true; // 画面外に落ちたらゲームオーバー
+    gameOver = true; 
   }
 
-  // ボールが3回連続で地面に触れずに落下
-  if (ball.fallCount >= 3) {
-    ball.isInvincible = true; // 無敵状態
-  }
+  // ボールがプラットフォームに当たったか確認
+  if (ball.y + ball.radius >= platform.y - platform.height / 2 &&
+      ball.x >= platform.x - platform.width / 2 &&
+      ball.x <= platform.x + platform.width / 2) {
+    
+    // ボールが赤い部分に当たったらゲームオーバー
+    if (ball.x >= platform.x - platform.redZoneWidth / 2 &&
+        ball.x <= platform.x + platform.redZoneWidth / 2) {
+      gameOver = true; // ゲームオーバー
+    } else {
+      // 緑の部分に当たったら跳ねる
+      ball.dy = ball.jumpPower;
+      score++; // スコアを加算
+      ball.fallCount++;
 
-  // プラットフォームの回転
-  platform.angle += 0.02; // ゆっくり回転
+      // 3回連続で落下したら無敵状態
+      if (ball.fallCount >= 3) {
+        ball.isInvincible = true;
+        ball.fallCount = 0; // カウントをリセット
+      }
+    }
+  }
 }
 
 // ゲームのメインループ
@@ -86,7 +114,7 @@ function gameLoop() {
 
     requestAnimationFrame(gameLoop);
   } else {
-    alert("Game Over!");
+    alert("Game Over! スコア: " + score);
   }
 }
 
